@@ -2,7 +2,6 @@ use serde::{Deserialize, Serialize};
 use std::fmt;
 use std::path;
 
-
 pub struct AudioFile {
     file: taglib::File,
 }
@@ -41,20 +40,19 @@ impl From<taglib::FileError> for FileError {
 impl fmt::Display for AudioTags {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         macro_rules! show_tag {
-			($name: expr, $field:tt, $( $ref:tt )*) => {{
-				if let Some($( $ref )* tag) = self.$field {
-                    writeln!(f, "{}:\t{}", $name, tag)?
+			($field:tt) => {{
+				if let Some(ref tag) = self.$field {
+                    writeln!(f, "{}:\t{}", stringify!($field), tag)?
 				}
 			}};
-			($name:expr, $field:tt) => { show_tag!($name, $field,) };
 		}
-        show_tag!("title", title, ref);
-        show_tag!("artist", artist, ref);
-        show_tag!("album", album, ref);
-        show_tag!("comment", comment, ref);
-        show_tag!("genre", genre, ref);
-        show_tag!("year", year);
-        show_tag!("track", track);
+        show_tag!(title);
+        show_tag!(artist);
+        show_tag!(album);
+        show_tag!(comment);
+        show_tag!(genre);
+        show_tag!(year);
+        show_tag!(track);
         Ok(())
     }
 }
