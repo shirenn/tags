@@ -82,14 +82,8 @@ fn run_editor(args: &ArgMatches) {
                 })
         })
         .collect();
-    let single = {
-        if args.values_of("FILE").unwrap().len() == 1 && tags.len() == 1 {
-            Some(tags.values().next().unwrap())
-        } else {
-            None
-        }
-    };
-    if let Some((ref file, ref tag)) = single {
+    if args.values_of("FILE").unwrap().len() == 1 && tags.len() == 1 {
+        let (file, tag) = tags.values().next().unwrap();
         let output = editor::edit_content(&editor, &serde_json::to_string_pretty(&tag).unwrap())
             .unwrap_or_else(|e| {
                 eprintln!("Editing the file failed: {}", e);
@@ -131,15 +125,11 @@ fn run_editor(args: &ArgMatches) {
 /// Edit the tags according to what was provided in `args`
 fn run_quick_edit(args: &ArgMatches) {
     let tags: AudioTags = AudioTags {
-        title: args.value_of("title").map(std::string::ToString::to_string),
-        artist: args
-            .value_of("artist")
-            .map(std::string::ToString::to_string),
-        album: args.value_of("album").map(std::string::ToString::to_string),
-        comment: args
-            .value_of("comment")
-            .map(std::string::ToString::to_string),
-        genre: args.value_of("genre").map(std::string::ToString::to_string),
+        title: args.value_of("title").map(str::to_string),
+        artist: args.value_of("artist").map(str::to_string),
+        album: args.value_of("album").map(str::to_string),
+        comment: args.value_of("comment").map(str::to_string),
+        genre: args.value_of("genre").map(str::to_string),
         year: args
             .value_of("year")
             .map(|v| v.parse().expect("Year should be a integer")),
@@ -162,6 +152,15 @@ fn run_quick_edit(args: &ArgMatches) {
 }
 
 fn main() {
+    macro_rules! tag_arg {
+        ($name:expr, $short:expr) => {
+            Arg::with_name($name)
+                .short($short)
+                .long($name)
+                .help(concat!("Set ", $name, " tag"))
+                .takes_value(true)
+        }
+    }
     let app = ClapApp::new(crate_name!())
         .version(crate_version!())
         .about("Edit audio tags")
@@ -186,48 +185,12 @@ fn main() {
             SubCommand::with_name("quickedit")
                 .about("Update tag on the fly")
                 .arg(Arg::with_name("FILE").required(true).multiple(true))
-                .arg(
-                    Arg::with_name("title")
-                        .short("t")
-                        .long("title")
-                        .help("Set title tag")
-                        .takes_value(true),
-                )
-                .arg(
-                    Arg::with_name("album")
-                        .short("l")
-                        .long("album")
-                        .help("Set album tag")
-                        .takes_value(true),
-                )
-                .arg(
-                    Arg::with_name("artist")
-                        .short("r")
-                        .long("artist")
-                        .help("Set artist tag")
-                        .takes_value(true),
-                )
-                .arg(
-                    Arg::with_name("genre")
-                        .short("g")
-                        .long("genre")
-                        .help("Set genre tag")
-                        .takes_value(true),
-                )
-                .arg(
-                    Arg::with_name("track")
-                        .short("n")
-                        .long("track")
-                        .help("Set track tag")
-                        .takes_value(true),
-                )
-                .arg(
-                    Arg::with_name("year")
-                        .short("y")
-                        .long("year")
-                        .help("Set year tag")
-                        .takes_value(true),
-                ),
+                .arg(tag_arg!("title", "t"))
+                .arg(tag_arg!("album", "l"))
+                .arg(tag_arg!("artist", "r"))
+                .arg(tag_arg!("genre", "g"))
+                .arg(tag_arg!("track", "n"))
+                .arg(tag_arg!("year", "y"))
         )
         .get_matches();
     match app.subcommand() {

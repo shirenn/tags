@@ -40,12 +40,12 @@ impl From<taglib::FileError> for FileError {
 impl fmt::Display for AudioTags {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         macro_rules! show_tag {
-			($field:tt) => {{
-				if let Some(ref tag) = self.$field {
+            ($field:tt) => {{
+                if let Some(ref tag) = self.$field {
                     writeln!(f, "{}:\t{}", stringify!($field), tag)?
-				}
-			}};
-		}
+                }
+            }};
+        }
         show_tag!(title);
         show_tag!(artist);
         show_tag!(album);
