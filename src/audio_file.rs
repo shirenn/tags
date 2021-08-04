@@ -80,12 +80,14 @@ impl AudioFile {
     pub fn update_tags(&self, tags: &AudioTags) -> Result<bool, FileError> {
         use taglib::Tag;
         let mut tag_updater = self.file.tag()?;
+        let mut updated = false;
         let current_tags = self.get_tags()?;
         macro_rules! update_tag {
 			($name:tt, $setter:expr, $( $ref:tt )*) => {{
 				if let Some($( $ref )* tag) = tags.$name {
 					if tags.$name != current_tags.$name {
-						($setter)(&mut tag_updater, tag)
+						($setter)(&mut tag_updater, tag);
+                        updated = true;
 					}
 				}
 			}};
@@ -98,6 +100,10 @@ impl AudioFile {
         update_tag!(genre, Tag::set_genre, ref);
         update_tag!(year, Tag::set_year);
         update_tag!(track, Tag::set_track);
-        Ok(self.file.save())
+        if updated {
+            Ok(self.file.save())
+        } else {
+            Ok(true)
+        }
     }
 }
