@@ -28,6 +28,7 @@ pub struct AudioTags {
 pub enum FileError {
     NotAFile,
     TaglibError(taglib::FileError),
+    TaglibFailedToSaveFile,
 }
 
 impl From<taglib::FileError> for FileError {
@@ -77,7 +78,7 @@ impl AudioFile {
             track: tag.track(),
         })
     }
-    pub fn update_tags(&self, tags: &AudioTags) -> Result<bool, FileError> {
+    pub fn update_tags(&self, tags: &AudioTags) -> Result<(), FileError> {
         use taglib::Tag;
         let mut tag_updater = self.file.tag()?;
         let mut updated = false;
@@ -100,10 +101,10 @@ impl AudioFile {
         update_tag!(genre, Tag::set_genre, ref);
         update_tag!(year, Tag::set_year);
         update_tag!(track, Tag::set_track);
-        if updated {
-            Ok(self.file.save())
+        if !updated || self.file.save() {
+            Ok(())
         } else {
-            Ok(true)
+            Err(FileError::TaglibFailedToSaveFile)
         }
     }
 }
