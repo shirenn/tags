@@ -3,31 +3,33 @@ use std::fs;
 use std::io::{self, Write};
 use std::process::{Command, ExitStatus};
 
-pub enum EditorError {
+pub enum Error {
     IoError(std::io::Error),
     NonZeroExitStatus(ExitStatus),
+    PathError,
 }
 
-impl From<io::Error> for EditorError {
+impl From<io::Error> for Error {
     fn from(error: io::Error) -> Self {
-        EditorError::IoError(error)
+        Error::IoError(error)
     }
 }
 
-impl fmt::Display for EditorError {
+impl fmt::Display for Error {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            EditorError::IoError(error) => write!(f, "{}", error),
-            EditorError::NonZeroExitStatus(status) => write!(
+            Error::IoError(error) => write!(f, "{}", error),
+            Error::NonZeroExitStatus(status) => write!(
                 f,
                 "Editor exited with {} exit code",
                 status.code().map_or("no".to_string(), |x| x.to_string())
             ),
+            Error::PathError => write!(f, "Fail to get tempfile path"),
         }
     }
 }
 
-pub fn edit_content(editor: &str, content: &str) -> Result<String, EditorError> {
+pub fn edit_content(editor: &str, content: &str) -> Result<String, Error> {
     let mut file = tempfile::Builder::new()
         .prefix("taggie-")
         .suffix(".tsv")
@@ -36,15 +38,13 @@ pub fn edit_content(editor: &str, content: &str) -> Result<String, EditorError> 
     file.write_all(content.as_bytes())?;
 
     let path = file.into_temp_path();
+    let unw_path = path.to_str().ok_or(Error::PathError)?;
 
-    let status = Command::new(&editor)
-        .arg(path.to_str().unwrap())
-        .status()
-        .unwrap_or_else(|_| panic!("Failed to start editor ({})", editor));
+    let status = Command::new(&editor).arg(unw_path).status()?;
 
     if !status.success() {
-        return Err(EditorError::NonZeroExitStatus(status));
+        return Err(Error::NonZeroExitStatus(status));
     }
 
-    fs::read_to_string(path).map_err(EditorError::from)
+    fs::read_to_string(path).map_err(Error::from)
 }

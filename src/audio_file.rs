@@ -78,6 +78,7 @@ impl AudioFile {
         })
     }
     pub fn update_tags(&self, tags: &AudioTags) -> Result<bool, FileError> {
+        use taglib::Tag;
         let mut tag_updater = self.file.tag()?;
         let current_tags = self.get_tags()?;
         macro_rules! update_tag {
@@ -90,7 +91,6 @@ impl AudioFile {
 			}};
 			($name:tt, $setter:expr) => { update_tag!($name, $setter,) };
 		}
-        use taglib::Tag;
         update_tag!(title, Tag::set_title, ref);
         update_tag!(artist, Tag::set_artist, ref);
         update_tag!(album, Tag::set_album, ref);
