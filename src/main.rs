@@ -52,6 +52,35 @@ fn run_edit() {
         });
 }
 
+fn run_quick_edit(args: &ArgMatches) {
+    let tags: AudioTags = AudioTags {
+        title: args.value_of("title").map(|v| v.to_string()),
+        artist: args.value_of("artist").map(|v| v.to_string()),
+        album: args.value_of("album").map(|v| v.to_string()),
+        comment: args.value_of("comment").map(|v| v.to_string()),
+        genre: args.value_of("genre").map(|v| v.to_string()),
+        year: args
+            .value_of("year")
+            .map(|v| v.parse().expect("Year should be a integer")),
+        track: args
+            .value_of("track")
+            .map(|v| v.parse().expect("Track should be a integer")),
+    };
+    args.values_of("FILE").unwrap().for_each(|filename| {
+        AudioFile::new(path::Path::new(&filename.to_string()))
+            .ok()
+            .and_then(|file| {
+                file.update_tags(&tags)
+                    .or_else(|e| {
+                        eprintln!("Couldn't update tags for {}", filename);
+                        Err(e)
+                    })
+                    .ok()
+            });
+        ()
+    });
+}
+
 fn main() {
     let app = ClapApp::new(crate_name!())
         .version(crate_version!())
@@ -62,9 +91,57 @@ fn main() {
                 .arg(Arg::with_name("FILE").required(true).multiple(true)),
         )
         .subcommand(SubCommand::with_name("edit").about("Edit tags from file"))
+        .subcommand(
+            SubCommand::with_name("quickedit")
+                .about("Update tag on the fly")
+                .arg(Arg::with_name("FILE").required(true).multiple(true))
+                .arg(
+                    Arg::with_name("title")
+                        .short("t")
+                        .long("title")
+                        .help("Set title tag")
+                        .takes_value(true),
+                )
+                .arg(
+                    Arg::with_name("album")
+                        .short("l")
+                        .long("album")
+                        .help("Set album tag")
+                        .takes_value(true),
+                )
+                .arg(
+                    Arg::with_name("artist")
+                        .short("r")
+                        .long("artist")
+                        .help("Set artist tag")
+                        .takes_value(true),
+                )
+                .arg(
+                    Arg::with_name("genre")
+                        .short("g")
+                        .long("genre")
+                        .help("Set genre tag")
+                        .takes_value(true),
+                )
+                .arg(
+                    Arg::with_name("track")
+                        .short("n")
+                        .long("track")
+                        .help("Set track tag")
+                        .takes_value(true),
+                )
+                .arg(
+                    Arg::with_name("year")
+                        .short("y")
+                        .long("year")
+                        .help("Set year tag")
+                        .takes_value(true),
+                ),
+        )
         .get_matches();
     match app.subcommand() {
         ("view", Some(args)) => run_view(args),
+        ("quickedit", Some(args)) => run_quick_edit(args),
         ("edit", Some(_)) => run_edit(),
         _ => (),
     }

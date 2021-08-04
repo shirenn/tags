@@ -9,19 +9,19 @@ pub struct AudioFile {
 #[derive(Serialize, Deserialize)]
 pub struct AudioTags {
     #[serde(skip_serializing_if = "Option::is_none")]
-    title: Option<String>,
+    pub title: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    artist: Option<String>,
+    pub artist: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    album: Option<String>,
+    pub album: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    comment: Option<String>,
+    pub comment: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    genre: Option<String>,
+    pub genre: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    year: Option<u32>,
+    pub year: Option<u32>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    track: Option<u32>,
+    pub track: Option<u32>,
 }
 
 #[derive(Debug)]
