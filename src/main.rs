@@ -1,8 +1,9 @@
 use clap::{crate_name, crate_version, App as ClapApp, Arg, ArgMatches, SubCommand};
 use std::collections::HashMap;
 use std::io::{self, Read};
-use std::path;
+use std::{path,env,process};
 use tags::{AudioFile, AudioTags};
+use tags::editor;
 
 fn run_view(args: &ArgMatches) {
     let tags: HashMap<&str, AudioTags> = args
@@ -62,6 +63,65 @@ fn run_edit() {
         });
 }
 
+fn run_editor(args: &ArgMatches) {
+    let editor = env::var("VISUAL")
+        .or_else(|_| env::var("EDITOR"))
+        .unwrap_or_else(|_| "vi".to_string());
+
+    let tags: HashMap<&str, (AudioFile,AudioTags)> = args
+        .values_of("FILE")
+        .unwrap()
+        .filter_map(|filename| {
+            AudioFile::new(path::Path::new(&filename.to_string()))
+                .ok()
+                .and_then(|file| file.get_tags().ok()
+                    .map(|tags| (filename, (file, tags))))
+                .or_else(|| {
+                    eprintln!("Could not read from {}", filename);
+                    None
+                })
+        })
+        .collect();
+    let single = {
+        if args.values_of("FILE").unwrap().len() == 1 && tags.len() == 1 {
+            Some(tags.values().next().unwrap())
+        } else {
+            None
+        }
+    };
+    if let Some((ref file,ref tag)) = single {
+        let output = editor::edit_content(&editor, &serde_json::to_string_pretty(&tag).unwrap())
+            .unwrap_or_else(|e| {
+                eprintln!("Editing the file failed: {}", e);
+                process::exit(1);
+            });
+        if file.update_tags(&serde_json::from_str(&output).expect("Could not
+        read")).is_err() {
+            eprintln!("Could not update tags");
+        }
+    } else {
+        let filtered_tags: HashMap<&str, &AudioTags> = tags.iter()
+            .map(|(&filename,(_,tag))| (filename,tag)).collect();
+        let output = editor::edit_content(&editor,
+        &serde_json::to_string_pretty(&filtered_tags).unwrap())
+            .unwrap_or_else(|e| {
+                eprintln!("Editing the file failed: {}", e);
+                process::exit(1);
+            });
+        let new_tags: HashMap<String, AudioTags> =
+            serde_json::from_str(&output).expect("Could not read");
+        for (filename,tag) in new_tags {
+            if let Some((file,_)) = tags.get(&filename as &str) {
+                if file.update_tags(&tag).is_err() {
+                    eprintln!("Could not update tags")
+                }
+            } else {
+                eprintln!("File not loaded")
+            }
+        }
+    }
+}
+
 fn run_quick_edit(args: &ArgMatches) {
     let tags: AudioTags = AudioTags {
         title: args.value_of("title").map(|v| v.to_string()),
@@ -105,6 +165,11 @@ fn main() {
                         .long("json")
                         .help("Output tags in json format")
                 ),
+        )
+        .subcommand(
+            SubCommand::with_name("editor")
+                .about("Edit tags from an external editor")
+                .arg(Arg::with_name("FILE").required(true).multiple(true)),
         )
         .subcommand(SubCommand::with_name("edit").about("Edit tags from file"))
         .subcommand(
@@ -157,6 +222,7 @@ fn main() {
         .get_matches();
     match app.subcommand() {
         ("view", Some(args)) => run_view(args),
+        ("editor", Some(args)) => run_editor(args),
         ("quickedit", Some(args)) => run_quick_edit(args),
         ("edit", Some(_)) => run_edit(),
         _ => (),
