@@ -93,10 +93,7 @@ fn run_editor(args: &ArgMatches) {
                 process::exit(1);
             });
         if file
-            .update_tags(&serde_json::from_str(&output).expect(
-                "Could not
-        read",
-            ))
+            .update_tags(&serde_json::from_str(&output).expect("Could not read"))
             .is_err()
         {
             eprintln!("Could not update tags");

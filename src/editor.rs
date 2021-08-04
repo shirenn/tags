@@ -29,11 +29,19 @@ impl fmt::Display for Error {
     }
 }
 
+/// Edits `content` in an external editor `editor` and returns the edited
+/// content
+///
+/// # Errors
+/// Relays errors it got from calling tempfile
+/// Returns `PathError` if the path provided by tempfile is invalid
+/// Returns any `NonZeroExitStatus` with the exit status value if the editor
+/// did not exit with success
+/// Returns an `IOError` if `edit_content` fails to read the file
 pub fn edit_content(editor: &str, content: &str) -> Result<String, Error> {
     let mut file = tempfile::Builder::new()
-        .prefix("taggie-")
-        .suffix(".tsv")
-        .rand_bytes(5)
+        .prefix("tags-")
+        .rand_bytes(10)
         .tempfile()?;
     file.write_all(content.as_bytes())?;
 
