@@ -5,6 +5,7 @@ use std::{env, path, process};
 use tags::editor;
 use tags::{AudioFile, AudioTags};
 
+/// Shows the tags for the file list provided in `args`
 fn run_view(args: &ArgMatches) {
     let tags: HashMap<&str, AudioTags> = args
         .values_of("FILE")
@@ -36,6 +37,7 @@ fn run_view(args: &ArgMatches) {
     }
 }
 
+/// Edit the tags according to what was red from `io::stdin`
 fn run_edit() {
     let mut buffer = String::new();
     io::stdin()
@@ -61,6 +63,7 @@ fn run_edit() {
         });
 }
 
+/// Edits the tags by calling an external editor
 fn run_editor(args: &ArgMatches) {
     let editor = env::var("VISUAL")
         .or_else(|_| env::var("EDITOR"))
@@ -125,6 +128,7 @@ fn run_editor(args: &ArgMatches) {
     }
 }
 
+/// Edit the tags according to what was provided in `args`
 fn run_quick_edit(args: &ArgMatches) {
     let tags: AudioTags = AudioTags {
         title: args.value_of("title").map(std::string::ToString::to_string),

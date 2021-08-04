@@ -59,6 +59,12 @@ impl fmt::Display for AudioTags {
 }
 
 impl AudioFile {
+    /// Creates a new `AudioFile` from a `Path`
+    ///
+    /// # Errors
+    ///
+    /// Will return `Err(NotAFile)` if the file does not exists
+    /// Will relay whatever errors it got from calling taglig
     pub fn new(path: &path::Path) -> Result<Self, FileError> {
         if !path.is_file() {
             return Err(FileError::NotAFile);
@@ -66,6 +72,14 @@ impl AudioFile {
         let file = taglib::File::new(&path)?;
         Ok(AudioFile { file })
     }
+
+    /// Returns `AudioTags` from the `AudioFile`
+    ///
+    /// Returns the tags it got from taglib in a `AudioTags` struct
+    ///
+    /// # Errors
+    ///
+    /// Will relay whatever errors it got from calling taglib
     pub fn get_tags(&self) -> Result<AudioTags, FileError> {
         let tag = self.file.tag()?;
         Ok(AudioTags {
@@ -78,6 +92,18 @@ impl AudioFile {
             track: tag.track(),
         })
     }
+
+    /// Updates the current tags according to `tags`
+    ///
+    /// Updates current tag fields if they are some in `tags` and they differ
+    /// from `tags`.
+    ///
+    /// # Errors
+    ///
+    /// If the update
+    /// fails, it will either relay the error it got from taglib or throw a
+    /// `TaglibFailedToSaveFile. If no update was needed or the update went
+    /// fine, it will return  `()`
     pub fn update_tags(&self, tags: &AudioTags) -> Result<(), FileError> {
         use taglib::Tag;
         let mut tag_updater = self.file.tag()?;
