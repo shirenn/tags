@@ -21,9 +21,19 @@ fn run_view(args: &ArgMatches) {
         .collect();
     if args.values_of("FILE").unwrap().len() == 1 && tags.len() == 1 {
         let tag = tags.values().next().unwrap();
-        println!("{}", serde_json::to_string_pretty(&tag).unwrap());
+        if args.is_present("json") {
+            println!("{}", serde_json::to_string_pretty(&tag).unwrap());
+        } else {
+            print!("{}", tag);
+        }
     } else {
-        println!("{}", serde_json::to_string_pretty(&tags).unwrap());
+        if args.is_present("json") {
+            println!("{}", serde_json::to_string_pretty(&tags).unwrap());
+        } else {
+            for (filename,tag) in tags {
+                print!("> Tags for {} <\n{}", filename, tag);
+            }
+        }
     }
 }
 
@@ -88,7 +98,13 @@ fn main() {
         .subcommand(
             SubCommand::with_name("view")
                 .about("View tags from file")
-                .arg(Arg::with_name("FILE").required(true).multiple(true)),
+                .arg(Arg::with_name("FILE").required(true).multiple(true))
+                .arg(
+                    Arg::with_name("json")
+                        .short("j")
+                        .long("json")
+                        .help("Output tags in json format")
+                ),
         )
         .subcommand(SubCommand::with_name("edit").about("Edit tags from file"))
         .subcommand(
