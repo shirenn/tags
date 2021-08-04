@@ -62,45 +62,27 @@ impl AudioFile {
             track: tag.track(),
         })
     }
-    pub fn apply_tags(&self, tags: &AudioTags) -> Result<(), FileError> {
+    pub fn update_tags(&self, tags: &AudioTags) -> Result<bool, FileError> {
         let mut tag_updater = self.file.tag()?;
         let current_tags = self.get_tags()?;
-        if let Some(ref title) = tags.title {
-            if tags.title != current_tags.title {
-                tag_updater.set_title(title);
-            }
-        }
-        if let Some(ref artist) = tags.artist {
-            if tags.artist != current_tags.artist {
-                tag_updater.set_artist(artist);
-            }
-        }
-        if let Some(ref album) = tags.album {
-            if tags.album != current_tags.album {
-                tag_updater.set_album(album);
-            }
-        }
-        if let Some(ref comment) = tags.comment {
-            if tags.comment != current_tags.comment {
-                tag_updater.set_comment(comment);
-            }
-        }
-        if let Some(ref genre) = tags.genre {
-            if tags.genre != current_tags.genre {
-                tag_updater.set_genre(genre);
-            }
-        }
-        if let Some(year) = tags.year {
-            if tags.year != current_tags.year {
-                tag_updater.set_year(year);
-            }
-        }
-        if let Some(track) = tags.track {
-            if tags.track != current_tags.track {
-                tag_updater.set_track(track);
-            }
-        }
-        self.file.save();
-        Ok(())
+        macro_rules! update_tag {
+			($name:tt, $setter:expr, $( $ref:tt )*) => {{
+				if let Some($( $ref )* tag) = tags.$name {
+					if tags.$name != current_tags.$name {
+						($setter)(&mut tag_updater, tag)
+					}
+				}
+			}};
+			($name:tt, $setter:expr) => { update_tag!($name, $setter,) };
+		}
+        use taglib::Tag;
+        update_tag!(title, Tag::set_title, ref);
+        update_tag!(artist, Tag::set_artist, ref);
+        update_tag!(album, Tag::set_album, ref);
+        update_tag!(comment, Tag::set_comment, ref);
+        update_tag!(genre, Tag::set_genre, ref);
+        update_tag!(year, Tag::set_year);
+        update_tag!(track, Tag::set_track);
+        Ok(self.file.save())
     }
 }

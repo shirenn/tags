@@ -36,7 +36,7 @@ fn run_edit() {
         serde_json::from_str(&buffer).expect("Could not read");
     new_tags
         .iter()
-        .filter_map(|(filename, tags)|
+        .filter_map(|(filename, tags)| {
             AudioFile::new(path::Path::new(&filename.to_string()))
                 .ok()
                 .map(|file| (filename, file, tags))
@@ -44,9 +44,9 @@ fn run_edit() {
                     eprintln!("Could not read from {}", filename);
                     None
                 })
-        )
+        })
         .for_each(|(filename, file, tags)| {
-            if file.apply_tags(tags).is_err() {
+            if file.update_tags(tags).is_err() {
                 eprintln!("Couldn't update tags for {}", filename);
             }
         });
@@ -64,7 +64,7 @@ fn main() {
         .subcommand(SubCommand::with_name("edit").about("Edit tags from file"))
         .get_matches();
     match app.subcommand() {
-        ("view", Some(view)) => run_view(view),
+        ("view", Some(args)) => run_view(args),
         ("edit", Some(_)) => run_edit(),
         _ => (),
     }
