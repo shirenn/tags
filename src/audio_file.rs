@@ -10,25 +10,26 @@ pub struct AudioFile {
 #[derive(Serialize, Deserialize)]
 pub struct AudioTags {
     #[serde(skip_serializing_if = "Option::is_none")]
-    title: Option<String>,
+    pub title: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    artist: Option<String>,
+    pub artist: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    album: Option<String>,
+    pub album: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    comment: Option<String>,
+    pub comment: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    genre: Option<String>,
+    pub genre: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    year: Option<u32>,
+    pub year: Option<u32>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    track: Option<u32>,
+    pub track: Option<u32>,
 }
 
 #[derive(Debug)]
 pub enum FileError {
     NotAFile,
     TaglibError(taglib::FileError),
+    TaglibFailedToSaveFile,
 }
 
 impl From<taglib::FileError> for FileError {
@@ -39,11 +40,32 @@ impl From<taglib::FileError> for FileError {
 
 impl fmt::Display for AudioTags {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", serde_json::to_string(&self).unwrap())
+        macro_rules! show_tag {
+			($name: expr, $field:tt, $( $ref:tt )*) => {{
+				if let Some($( $ref )* tag) = self.$field {
+                    writeln!(f, "{}:\t{}", $name, tag)?
+				}
+			}};
+			($name:expr, $field:tt) => { show_tag!($name, $field,) };
+		}
+        show_tag!("title", title, ref);
+        show_tag!("artist", artist, ref);
+        show_tag!("album", album, ref);
+        show_tag!("comment", comment, ref);
+        show_tag!("genre", genre, ref);
+        show_tag!("year", year);
+        show_tag!("track", track);
+        Ok(())
     }
 }
 
 impl AudioFile {
+    /// Creates a new `AudioFile` from a `Path`
+    ///
+    /// # Errors
+    ///
+    /// Will return `Err(NotAFile)` if the file does not exists
+    /// Will relay whatever errors it got from calling taglig
     pub fn new(path: &path::Path) -> Result<Self, FileError> {
         if !path.is_file() {
             return Err(FileError::NotAFile);
@@ -51,6 +73,14 @@ impl AudioFile {
         let file = taglib::File::new(&path)?;
         Ok(AudioFile { file })
     }
+
+    /// Returns `AudioTags` from the `AudioFile`
+    ///
+    /// Returns the tags it got from taglib in a `AudioTags` struct
+    ///
+    /// # Errors
+    ///
+    /// Will relay whatever errors it got from calling taglib
     pub fn get_tags(&self) -> Result<AudioTags, FileError> {
         let tag = self.file.tag()?;
         Ok(AudioTags {
@@ -63,20 +93,34 @@ impl AudioFile {
             track: tag.track(),
         })
     }
-    pub fn apply_tags(&self, tags: &AudioTags) -> Result<(), FileError> {
+
+    /// Updates the current tags according to `tags`
+    ///
+    /// Updates current tag fields if they are some in `tags` and they differ
+    /// from `tags`.
+    ///
+    /// # Errors
+    ///
+    /// If the update
+    /// fails, it will either relay the error it got from taglib or throw a
+    /// `TaglibFailedToSaveFile. If no update was needed or the update went
+    /// fine, it will return  `()`
+    pub fn update_tags(&self, tags: &AudioTags) -> Result<(), FileError> {
+        use taglib::Tag;
         let mut tag_updater = self.file.tag()?;
+        let mut updated = false;
         let current_tags = self.get_tags()?;
         macro_rules! update_tag {
-            ($name:tt, $setter:expr, $( $ref:tt )*) => {{
-                if let Some($( $ref )* tag) = tags.$name {
-                    if tags.$name != current_tags.$name {
-                        ($setter)(&mut tag_updater, tag)
-                    }
-                }
-            }};
-            ($name:tt, $setter:expr) => { update_tag!($name, $setter,) };
-        }
-        use taglib::Tag;
+			($name:tt, $setter:expr, $( $ref:tt )*) => {{
+				if let Some($( $ref )* tag) = tags.$name {
+					if tags.$name != current_tags.$name {
+						($setter)(&mut tag_updater, tag);
+                        updated = true;
+					}
+				}
+			}};
+			($name:tt, $setter:expr) => { update_tag!($name, $setter,) };
+		}
         update_tag!(title, Tag::set_title, ref);
         update_tag!(artist, Tag::set_artist, ref);
         update_tag!(album, Tag::set_album, ref);
@@ -84,7 +128,10 @@ impl AudioFile {
         update_tag!(genre, Tag::set_genre, ref);
         update_tag!(year, Tag::set_year);
         update_tag!(track, Tag::set_track);
-        self.file.save();
-        Ok(())
+        if !updated || self.file.save() {
+            Ok(())
+        } else {
+            Err(FileError::TaglibFailedToSaveFile)
+        }
     }
 }
