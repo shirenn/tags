@@ -37,6 +37,16 @@ impl From<taglib::FileError> for FileError {
     }
 }
 
+impl fmt::Display for FileError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match &self {
+            FileError::NotAFile => write!(f, "The file doesn't exists"),
+            FileError::TaglibError(_) => write!(f, "Taglib threw an error"),
+            FileError::TaglibFailedToSaveFile => write!(f, "Taglib failed to save the file"),
+        }
+    }
+}
+
 impl fmt::Display for AudioTags {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         macro_rules! show_tag {

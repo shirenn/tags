@@ -3,6 +3,7 @@ use std::fs;
 use std::io::{self, Write};
 use std::process::{Command, ExitStatus};
 
+#[derive(Debug)]
 pub enum Error {
     IoError(std::io::Error),
     NonZeroExitStatus(ExitStatus),

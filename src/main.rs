@@ -1,7 +1,7 @@
 use clap::{crate_name, crate_version, App as ClapApp, Arg, ArgMatches, SubCommand};
 use std::collections::HashMap;
 use std::io::{self, Read};
-use std::{env, path, process};
+use std::{env, path};
 use tags::editor;
 use tags::{AudioFile, AudioTags};
 
@@ -11,18 +11,18 @@ fn run_view(args: &ArgMatches) {
         .values_of("FILE")
         .unwrap()
         .filter_map(|filename| {
-            AudioFile::new(path::Path::new(&filename.to_string()))
-                .ok()
-                .and_then(|file| file.get_tags().ok())
-                .map(|tag| (filename, tag))
-                .or_else(|| {
-                    eprintln!("Could not read from {}", filename);
-                    None
-                })
+            let file = AudioFile::new(path::Path::new(&filename.to_string()))
+                .and_then(|file| file.get_tags().map(|tags| (filename, tags)));
+            if let Err(e) = &file {
+                eprintln!("{}", e);
+            };
+            file.ok()
         })
         .collect();
-    if args.values_of("FILE").unwrap().len() == 1 && tags.len() == 1 {
-        let tag = tags.values().next().unwrap();
+    let single = (args.values_of("FILE").unwrap().len() == 1)
+        .then(|| ())
+        .and_then(|()| tags.values().next());
+    if let Some(tag) = single {
         if args.is_present("json") {
             println!("{}", serde_json::to_string_pretty(&tag).unwrap());
         } else {
@@ -48,17 +48,15 @@ fn run_edit() {
     new_tags
         .iter()
         .filter_map(|(filename, tags)| {
-            AudioFile::new(path::Path::new(&filename.to_string()))
-                .ok()
-                .map(|file| (filename, file, tags))
-                .or_else(|| {
-                    eprintln!("Could not read from {}", filename);
-                    None
-                })
+            let file = AudioFile::new(path::Path::new(&filename.to_string()));
+            if let Err(e) = &file {
+                eprintln!("{}", e);
+            };
+            file.map(|file| (file, tags)).ok()
         })
-        .for_each(|(filename, file, tags)| {
-            if file.update_tags(tags).is_err() {
-                eprintln!("Couldn't update tags for {}", filename);
+        .for_each(|(file, tags)| {
+            if let Err(e) = file.update_tags(tags) {
+                eprintln!("{}", e);
             }
         });
 }
@@ -69,38 +67,28 @@ fn run_editor(args: &ArgMatches) {
         .or_else(|_| env::var("EDITOR"))
         .unwrap_or_else(|_| "vi".to_string());
 
-    let tags: HashMap<&str, (AudioFile, AudioTags)> = args
+    let tags: HashMap<_, _> = args
         .values_of("FILE")
         .unwrap()
         .filter_map(|filename| {
-            AudioFile::new(path::Path::new(&filename.to_string()))
-                .ok()
-                .and_then(|file| file.get_tags().ok().map(|tags| (filename, (file, tags))))
-                .or_else(|| {
-                    eprintln!("Could not read from {}", filename);
-                    None
-                })
+            let file = AudioFile::new(path::Path::new(&filename.to_string()))
+                .and_then(|file| file.get_tags().map(|tags| (filename, (file, tags))));
+            if let Err(e) = &file {
+                eprintln!("{}", e);
+            };
+            file.ok()
         })
         .collect();
-    let single = {
-        if args.values_of("FILE").unwrap().len() == 1 && tags.len() == 1 {
-            Some(tags.values().next().unwrap())
-        } else {
-            None
-        }
-    };
+    let single = (args.values_of("FILE").unwrap().len() == 1)
+        .then(|| ())
+        .and_then(|()| tags.values().next());
     if let Some((ref file, ref tag)) = single {
-        let output = editor::edit_content(&editor, &serde_json::to_string_pretty(&tag).unwrap())
-            .unwrap_or_else(|e| {
-                eprintln!("Editing the file failed: {}", e);
-                process::exit(1);
-            });
-        if file
-            .update_tags(&serde_json::from_str(&output).expect("Could not read"))
-            .is_err()
-        {
-            eprintln!("Could not update tags");
-        }
+        let output =
+            editor::edit_content(&editor, &serde_json::to_string_pretty(&tag).unwrap()).unwrap();
+        file.update_tags(
+            &serde_json::from_str(&output).expect("Could not parse the provided json"),
+        )
+        .unwrap();
     } else {
         let filtered_tags: HashMap<&str, &AudioTags> = tags
             .iter()
@@ -110,20 +98,16 @@ fn run_editor(args: &ArgMatches) {
             &editor,
             &serde_json::to_string_pretty(&filtered_tags).unwrap(),
         )
-        .unwrap_or_else(|e| {
-            eprintln!("Editing the file failed: {}", e);
-            process::exit(1);
-        });
-        let new_tags: HashMap<String, AudioTags> =
-            serde_json::from_str(&output).expect("Could not read");
+        .unwrap();
+        let new_tags: HashMap<String, _> = serde_json::from_str(&output).expect("Could not read");
         for (filename, tag) in new_tags {
-            if let Some((file, _)) = tags.get(&filename as &str) {
-                if file.update_tags(&tag).is_err() {
-                    eprintln!("Could not update tags");
-                }
-            } else {
-                eprintln!("File not loaded");
-            }
+            tags.get(&filename as &str).map_or_else(
+                || eprintln!("File not loaded"),
+                |(file, _)| {
+                    file.update_tags(&tag)
+                        .unwrap_or_else(|e| eprintln!("{}", e));
+                },
+            );
         }
     }
 }
