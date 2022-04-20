@@ -1,7 +1,7 @@
 # Tags
 
 Tags is an utility to edit audio file from the commandline based on taglib. It
-was greatly inspired by [https://github.com/ravicious/taggie](taggie) another
+was greatly inspired by [taggie](https://github.com/ravicious/taggie) another
 rust based tag editor. It aims to provide multiple ways to get and set tags.
 
 To view tags you can simply run :
